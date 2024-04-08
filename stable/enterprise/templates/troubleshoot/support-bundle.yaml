@@ -22,9 +22,6 @@ spec:
           - app.kubernetes.io/name=ui-redis
         limits:
           maxAge: 720h
-    - redis:
-        collectorName: redis
-        uri: 'redis://:{{ index .Values "ui-redis" "auth" "password" }}@{{ template "redis.fullname" . }}-master:6379' 
     {{- end }}
     # If the postgres subchart is enabled collect its logs 
     {{- if .Values.postgresql.enabled }}
@@ -35,14 +32,6 @@ spec:
         limits:
           maxAge: 720h
     {{- end }}
-    # Test connectivity to the Postgres database and collect information about the version
-    - postgres:
-        collectorName: postgres
-        uri: "postgresql://{{- template "enterprise.ui.dbUser" . -}}:{{- template "enterprise.ui.dbPassword" . -}}@{{ template "enterprise.dbHostname" . }}/{{ index .Values "postgresql" "auth" "database" }}"
-        {{- if .Values.anchoreConfig.database.ssl -}}
-        tls:
-          skipVerify: {{- (not ( eq .Values.anchoreConfig.database.sslMode "verify-full" ) ) -}}
-        {{- end -}}
     # Collect counts
     {{ include "troubleshoot.collectors.counts" . | nindent 4 }}
     # Collect DB info
@@ -165,30 +154,4 @@ spec:
               message: The {{ template "enterprise.ui.fullname" . }} service does not have any instances ready to handle requests
           - pass:
               message: The {{ template "enterprise.ui.fullname" . }} service is running and ready to process requests
-    # Validate connection to the redis store if it's enabled
-    {{- if (index .Values "ui-redis" "chartEnabled") }}
-    - jsonCompare:
-        checkName: Redis connection
-        fileName: redis/postfacto.json
-        path: "isConnected"
-        value: "true"
-        outcomes:
-          - fail:
-              when: "false"
-              message: Cannot connect to Redis server {{ template "redis.fullname" . }}
-          - pass:
-              when: "true"
-              message: Redis server {{ template "redis.fullname" . }} is ready and connected
-    {{- end }}
-    # Validate connection to the database. This will check the connection whether it's an external
-    # database or spun up as part of the install.
-    - postgres:
-        checkName: Postgress connection
-        collectorName: postgress
-        outcomes:
-          - fail:
-              when: connected == false
-              message: Cannot connect to the Postgres server {{ template "enterprise.dbHostname" . }}
-          - pass:
-              message: Postgres server {{ template "enterprise.dbHostname" . }} is ready and connected
 {{- end -}}

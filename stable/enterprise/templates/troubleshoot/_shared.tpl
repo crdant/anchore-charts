@@ -55,6 +55,15 @@
     imagePullSecret:
       type: kubernetes.io/dockerconfigjson
       name: {{ .Values.imagePullSecretName }}
+# Test connectivity to the Postgres database and collect information about the version
+{{- if (not .Values.postgresql.enabled ) }}
+- postgres:
+    collectorName: postgres
+    uri: "postgresql://{{- template "enterprise.ui.dbUser" . -}}:{{- template "enterprise.ui.dbPassword" . -}}@{{ template "enterprise.dbHostname" . }}/{{ index .Values "postgresql" "auth" "database" }}"
+    {{- if .Values.anchoreConfig.database.ssl -}}
+    tls:
+      skipVerify: {{- (not ( eq .Values.anchoreConfig.database.sslMode "verify-full" ) ) -}}
+    {{- end -}}
 {{- end -}}
 
 {{- define "troubleshoot.analyzers.shared" -}}
@@ -171,4 +180,16 @@
           message: Failed to check if images are present in registry
       - pass:
           message: All images are present in registry
+# Validate connection to an external database. 
+{{- if (not .Values.postgresql.enabled ) }}
+- postgres:
+    checkName: Postgress connection
+    collectorName: postgress
+    outcomes:
+      - fail:
+          when: connected == false
+          message: Cannot connect to the Postgres server {{ template "enterprise.dbHostname" . }}
+      - pass:
+          message: Postgres server {{ template "enterprise.dbHostname" . }} is ready and connected
+{{- end -}}
 {{- end -}}
