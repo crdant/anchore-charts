@@ -1583,3 +1583,10 @@ postgresql:
   ##
   image:
     tag: 13.11.0-debian-11-r15
+
+#######################################
+## @section Distriution parameters
+#######################################
+replicated:
+  chartEnabled: true
+

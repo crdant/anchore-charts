@@ -1,0 +1,194 @@
+{{- define "troubleshoot.supportBundle" -}}
+apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: {{ include "enterprise.fullname" . }}-support-bundle
+spec:
+  collectors: {{- include "troubleshoot.collectors.shared" .  | nindent 4 }}
+    # Collect logs from Anchore Enterprise services and store them where they can easily
+    # be found in the bundle.
+    - logs:
+        name: logs/{{ .Chart.Name }}
+        selector: 
+          - app.kubernetes.io/name={{ template "enterprise.fullname" . }}
+        limits:
+          maxAge: 720h
+    # If the redis subchart is enabled collect the logs from it's running pods and test
+    # connectivity
+    {{- if (index .Values "ui-redis" "chartEnabled") }}
+    - logs:
+        name: logs/redis
+        selector: 
+          - app.kubernetes.io/name=ui-redis
+        limits:
+          maxAge: 720h
+    - redis:
+        collectorName: redis
+        uri: 'redis://:{{ index .Values "ui-redis" "auth" "password" }}@{{ template "redis.fullname" . }}-master:6379' 
+    {{- end }}
+    # If the postgres subchart is enabled collect its logs 
+    {{- if .Values.postgresql.enabled }}
+    - logs:
+        name: logs/postgres
+        selector: 
+          - app=postgresql
+        limits:
+          maxAge: 720h
+    {{- end }}
+    # Test connectivity to the Postgres database and collect information about the version
+    - postgres:
+        collectorName: postgres
+        uri: "postgresql://{{- template "enterprise.ui.dbUser" . -}}:{{- template "enterprise.ui.dbPassword" . -}}@{{ template "enterprise.dbHostname" . }}/{{ index .Values "postgresql" "auth" "database" }}"
+        {{- if .Values.anchoreConfig.database.ssl -}}
+        tls:
+          skipVerify: {{- (not ( eq .Values.anchoreConfig.database.sslMode "verify-full" ) ) -}}
+        {{- end -}}
+    # Collect counts
+    {{ include "troubleshoot.collectors.counts" . | nindent 4 }}
+    # Collect DB info
+    {{ include "troubleshoot.collectors.dbInfo" . | nindent 4 }}
+  analyzers: {{- include "troubleshoot.analyzers.shared" .  | nindent 4 }}
+    # Test whether the expected set of deployments is running
+    - deploymentStatus:
+        name: {{ template "enterprise.analyzer.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.analyzer.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.analyzer.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.analyzer.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.api.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.api.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.api.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.api.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.catalog.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.catalog.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.catalog.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.catalog.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.notifications.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.notifications.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.notifications.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.notifications.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.policyEngine.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: {{ template "enterprise.policyEngine.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.policyEngine.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.policyEngine.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.reports.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.reports.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.reports.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.reports.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.reportsWorker.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.reportsWorker.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.reportsWorker.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.reportsWorker.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.simpleQueue.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.simpleQueue.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.simpleQueue.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.simpleQueue.fullname" . }} service is running and ready to process requests
+
+    - deploymentStatus:
+        name: {{ template "enterprise.ui.fullname" . }}
+        namespace: '{{ .Release.Namespace }}'
+        outcomes:
+          - fail:
+              when: absent
+              message: The {{ template "enterprise.ui.fullname" . }} service is not running
+          - fail:
+              when: < 1
+              message: The {{ template "enterprise.ui.fullname" . }} service does not have any instances ready to handle requests
+          - pass:
+              message: The {{ template "enterprise.ui.fullname" . }} service is running and ready to process requests
+    # Validate connection to the redis store if it's enabled
+    {{- if (index .Values "ui-redis" "chartEnabled") }}
+    - jsonCompare:
+        checkName: Redis connection
+        fileName: redis/postfacto.json
+        path: "isConnected"
+        value: "true"
+        outcomes:
+          - fail:
+              when: "false"
+              message: Cannot connect to Redis server {{ template "redis.fullname" . }}
+          - pass:
+              when: "true"
+              message: Redis server {{ template "redis.fullname" . }} is ready and connected
+    {{- end }}
+    # Validate connection to the database. This will check the connection whether it's an external
+    # database or spun up as part of the install.
+    - postgres:
+        checkName: Postgress connection
+        collectorName: postgress
+        outcomes:
+          - fail:
+              when: connected == false
+              message: Cannot connect to the Postgres server {{ template "enterprise.dbHostname" . }}
+          - pass:
+              message: Postgres server {{ template "enterprise.dbHostname" . }} is ready and connected
+{{- end -}}

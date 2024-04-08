@@ -6,7 +6,10 @@ dependencies:
   repository: oci://registry-1.docker.io/bitnamicharts
   version: 17.11.8
 - name: feeds
-  repository: https://charts.anchore.io/stable
+  repository: https://charts.anchore.io
   version: 2.4.0
-digest: sha256:9179b9a84b9f974b98c1182a25f7d5976a256371cee3733b9ffb9d09d7339c0f
-generated: "2024-04-03T17:23:43.082782-07:00"
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.0.0-beta.16
+digest: sha256:d96f0f4e75d01a7dfc8c59fe6a6371da6789b34a123e41b2c7546ec7d29777af
+generated: "2024-04-08T12:45:32.180873-04:00"
